@@ -1,11 +1,26 @@
-#include "edpilot.h"
-#include <filesystem>
+#include <edpilot.h>
 #include <iostream>
 #include <string>
+
+#if APPLE
+#include <boost/filesystem.hpp>
+#else
+#include <filesystem>
+#endif
 
 using namespace std;
 using namespace edpilot;
 using namespace ggframe;
+
+#if APPLE
+using boost::filesystem::path;
+using boost::filesystem::is_directory;
+using boost::filesystem::directory_iterator;
+#else
+using std::filesystem::path;
+using std::filesystem::is_directory;
+using std::filesystem::directory_iterator;
+#endif
 
 void SpeedObserver::trainOnline(vector<FrameFeature> const& features, vector<unsigned> const& speed)
 {
@@ -15,25 +30,30 @@ void SpeedObserver::trainOnline(vector<FrameFeature> const& features, vector<uns
 void SpeedObserver::labelTrainingDataInteractive()
 {
 
-	filesystem::path data_dir;
+	path data_dir;
 	do {
 		std::cout << "Where can I find the images?" << std::endl;
 		string input;
 		std::getline(std::cin, input);
 		if (input.length() == 0) {
+#if WIN32
 			input = "C:\\Users\\Yu\\Desktop\\data";
+#endif
+#if APPLE
+			input = "/Users/yuli/Desktop/data";
+#endif
 		} else if (input.length() && input[0] == '"')
 		{
 			input = input.substr(1, input.length() - 2);
 		}
 		data_dir = input;
 		std::cout << "checking " << data_dir << std::endl;
-	} while (!filesystem::is_directory(data_dir));
+	} while (! is_directory(data_dir));
 	Frame pattern;
-	for (auto& file : filesystem::directory_iterator(data_dir))
+	for (auto& file : directory_iterator(data_dir))
 	{
 		string fp = file.path().string();
-		if (fp.find(".bmp") != fp.npos) {
+		if (fp.find(".png") != fp.npos) {
 			std::cout << "found img " << fp << std::endl;
 			ggframe::Frame frame(fp);
 			if (! pattern.empty()) {
@@ -56,7 +76,8 @@ void SpeedObserver::labelTrainingDataInteractive()
 				event = frame.waitForInput();
 			}
 			if (pattern.empty()) {
-				pattern = frame.cutRec(mouse_selection);
+				pattern = frame;
+				pattern.crop(mouse_selection);
 			}
 			if (event.type == InputEventType::WindowClose) {
 				return;
