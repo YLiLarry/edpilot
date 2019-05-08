@@ -53,7 +53,7 @@ void SpeedObserver::labelTrainingDataInteractive()
 	for (auto& file : directory_iterator(data_dir))
 	{
 		string fp = file.path().string();
-		if (fp.find(".png") != fp.npos) {
+		if (fp.find(".bmp") != fp.npos) {
 			std::cout << "found img " << fp << std::endl;
 			ggframe::Frame frame(fp);
 			if (! pattern.empty()) {
@@ -70,7 +70,7 @@ void SpeedObserver::labelTrainingDataInteractive()
 			while (event.source == InputSource::Mouse)
 			{
 				frame.load(fp);
-				mouse_selection = frame.bestGridRecCenteredAt(event.mouse.r, event.mouse.c, 100, 180);
+				mouse_selection = frame.bestGridRecCenteredAt(Pos::rc(event.mouse.row(), event.mouse.col()), ggframe::Size::hw(180, 100));
 				frame.drawRec(mouse_selection);
 				frame.display();
 				event = frame.waitForInput();
