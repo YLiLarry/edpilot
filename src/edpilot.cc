@@ -24,7 +24,7 @@ void SpeedObserver::trainOnline(vector<FrameFeature> const& features, vector<uns
 void SpeedObserver::labelTrainingDataInteractive()
 {
 
-	path data_dir;
+	filesystem::path data_dir;
 	/* define where data is located */
 #if WIN32
 	data_dir = "C:\\Users\\Yu\\Desktop\\data";
@@ -70,7 +70,7 @@ void SpeedObserver::labelTrainingDataInteractive()
 				// frame.drawRec(matched_rec);
 				// frame.display();
 				// cerr << "showing matched rectangle" << endl;
-				InputEvent e;
+				InputEvent e{};
 				while(e.source != Keyboard) {
 					e = frame.waitForInput();
 				}

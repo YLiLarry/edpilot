@@ -5,8 +5,8 @@ add_subdirectory(deps/ggframe)
 
 option(build_edpilot_example "build examples?" ON)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 file(GLOB SOURCES src/*.cc)
 file(GLOB HEADERS src/*.h)
@@ -37,6 +37,11 @@ target_link_libraries(
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 
 if(WIN32)
+	target_compile_definitions(
+		${PROJECT_NAME} 
+		PRIVATE
+			WIN32=1
+	)
 endif(WIN32)
 
 if(APPLE)
@@ -50,3 +55,5 @@ endif(APPLE)
 if(build_edpilot_example)
 	add_subdirectory(example)
 endif(build_edpilot_example)
+
+add_subdirectory(tools/tmlabel)
