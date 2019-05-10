@@ -1,12 +1,18 @@
 #include <string>
 #include <iostream>
-#include <filesystem>
 #include <tmlabel.h>
+#include <fstream>
 
 #include <opencv2/xfeatures2d/nonfree.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc.hpp>
+
+#if APPLE
+#include <boost/filesystem.hpp>
+#else
+#include <filesystem>
+#endif
 
 using namespace std;
 using namespace ggframe;
@@ -27,6 +33,8 @@ int main() {
     data_dir = "/Users/yuli/Downloads/data";
 #endif
     filesystem::path template_dir = data_dir / "templates";
+    filesystem::path labeled_dir = data_dir / "labeled";
+    filesystem::path label_files_dir = data_dir / "labels";
     std::cerr << "checking " << template_dir << std::endl;
     for (auto& file : filesystem::directory_iterator(template_dir))
     {
@@ -44,19 +52,34 @@ int main() {
     for (auto& file : filesystem::directory_iterator(data_dir))
     {
         string fp = file.path().string();
+        string fname = file.path().filename().string();
+        filesystem::path labeled_img_path = labeled_dir / ("labeled_" + fname);
+        filesystem::path label_path = label_files_dir / ("label_" + fname.replace(fname.end()-3, fname.end(), "txt"));
+        if (filesystem::exists(labeled_img_path)) {
+            cerr << "skipping " << labeled_img_path << endl;
+            continue;
+        }
         /* found an unlabeld image */
         if (fp.find(".bmp") != fp.npos) {
             std::cerr << fp << " ";
             Frame frame(fp);
             frame.computeKeypoints(tmlabel::feature_algorithm);
-            Rec rec = labeler.bestRecMatchForFrame(frame, ggframe::Size::hw(200, 150));
-            cerr << rec << endl;
-            TemplateMatcher const& matcher = labeler.templateMatchers()[0];
+            Rec best_rec = labeler.bestRecMatchForFrame(frame, ggframe::Size::hw(150, 100));
+            cerr << best_rec << endl;
+            TemplateMatcher const& matcher = labeler.templateMatchers()[1];
             matcher.drawMatches(frame);
             int offset = matcher.templateFrame().nCols();
-            Rec offset_rec = Rec::tlbr(rec.top(), rec.left() + offset, rec.bottom(), rec.right() + offset);
+            Rec offset_rec = Rec::tlbr(best_rec.top(), best_rec.left() + offset, best_rec.bottom(), best_rec.right() + offset);
             frame.drawRec(offset_rec);
             frame.display();
+            frame.save(labeled_img_path);
+            ofstream label_file_stream(label_path, ios_base::out|ios_base::trunc);
+            label_file_stream << "tlbr "
+                << best_rec.top() << " "
+                << best_rec.left() << " "
+                << best_rec.bottom() << " "
+                << best_rec.right() << endl;
+            label_file_stream.close();
         }
     }
 }
@@ -100,22 +123,26 @@ void TemplateMatcher::drawMatches(Frame& canvas) const
 Rec TemplateMatchingLabeler::bestRecMatchForFrame(Frame& frame, ggframe::Size const& size)
 {
     Rec current_best = Rec::tlbr(0, 0, size.height() - 1, size.width() - 1);
-    int current_best_sum = 0;
+    float current_best_score = 0;
     for (auto& m : m_template_matchers) {
         m.setTargetFrame(frame);
         m.computeMatches();
     }
-    for (int r = 0; r < frame.nRows(); r += m_grid_size) {
-        for (int c = 0; c < frame.nCols(); c += m_grid_size) {
+    for (int r = 0; r <= frame.nRows() - size.height(); r += m_grid_size) {
+        for (int c = 0; c <= frame.nCols() - size.width(); c += m_grid_size) {
             Rec next = Rec::tlbr(r, c, r + size.height() - 1, c + size.width() - 1);
-            int sum = 0;
+            float sum = 0;
             for (auto& m : m_template_matchers) {
                 sum += m.countMatchesInRec(next);
             }
-            if (sum > current_best_sum) {
+            if (sum > current_best_score) {
                 current_best = next;
-                current_best_sum = sum;
+                current_best_score = sum;
             }
+            //Frame tmp = frame;
+            //tmp.drawRec(next);
+            //tmp.display();
+            //cerr << current_best_score << endl;
         }
     }
     return current_best;
@@ -126,18 +153,28 @@ void TemplateMatcher::setTargetFrame(Frame const& target)
     m_target = target;
 }
 
-unsigned TemplateMatcher::countMatchesInRec(Rec const& rec)
+float TemplateMatcher::countMatchesInRec(Rec const& rec)
 {
     assert(m_matches.size() && "did you compute matches?");
     unsigned good_count = 0;
+    float dist_score = 0;
+    /* find how many matches are there in the rectangle */
     /* consider using kd-tree */
+    Pos center = rec.center();
     for (cv::DMatch const& m : m_matches) {
         cv::KeyPoint const& kp = m_target.keypoints()[m.trainIdx];
-        if (rec.containsPos(Pos::rc(kp.pt.y, kp.pt.x))) {
+        Pos kp_pos = Pos::rc(kp.pt.y, kp.pt.x);
+        if (rec.containsPos(kp_pos)) {
             good_count++;
+            /* kp == center ==> dist_score += 1,
+               kp == left ==> dist_score += 0 */
+            dist_score += 1 - static_cast<float>(std::abs(kp_pos.col() - center.col()) * 2) / static_cast<float>(rec.width());
+            dist_score += 1 - static_cast<float>(std::abs(kp_pos.row() - center.row()) * 2) / static_cast<float>(rec.height());
         }
     }
-    return good_count;
+    dist_score /= static_cast<float>(2 * good_count);
+    /* compute an normialized distance to center for all matches */
+    return good_count + dist_score;
 }
 
 TemplateMatcher::TemplateMatcher(Frame const& pattern)

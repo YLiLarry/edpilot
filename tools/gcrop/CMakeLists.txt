@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
-project(tmlabel VERSION 1.0)
+project(gcrop VERSION 1.0)
 
-add_executable(${PROJECT_NAME} src/tmlabel.cc)
+add_executable(${PROJECT_NAME} src/gcrop.cc)
 
 install (TARGETS ${PROJECT_NAME}  
 	RUNTIME DESTINATION bin

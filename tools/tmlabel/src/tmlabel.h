@@ -33,7 +33,7 @@ namespace tmlabel
         Frame const& templateFrame() const;
         void computeTemplateKeypoints();
         void computeMatches();
-        unsigned countMatchesInRec(Rec const& rec);
+        float countMatchesInRec(Rec const& rec);
         void drawMatches(Frame& canvas) const;
     };
 

@@ -57,3 +57,4 @@ if(build_edpilot_example)
 endif(build_edpilot_example)
 
 add_subdirectory(tools/tmlabel)
+add_subdirectory(tools/gcrop)
